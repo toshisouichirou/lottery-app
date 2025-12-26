@@ -11,6 +11,26 @@
     .result { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 28px; font-weight: 700; padding: 12px 0; }
     button { padding: 10px 14px; margin-right: 10px; margin-bottom: 10px; }
     table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    <hr style="margin:20px 0;">
+
+<h2 style="font-size:16px;margin:0 0 10px;">過去データ統計（loto6_stats.json）</h2>
+
+<div id="statsBox" style="border:1px solid #ddd;padding:12px;border-radius:8px;">
+  <div id="statsStatus" style="font-size:12px;color:#666;">統計データを読み込み中…</div>
+
+  <div style="margin-top:10px;">
+    <div><b>対象回数</b>: <span id="s_draws">—</span></div>
+    <div><b>対象期間</b>: <span id="s_range">—</span></div>
+    <div><b>連番（差=1）が1組以上ある確率</b>: <span id="s_consecutive_any">—</span></div>
+    <div><b>連番ペア数分布（0〜4）</b>: <span id="s_consecutive_dist">—</span></div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <b>本数字 出現回数 Top10</b>
+    <ol id="s_top10" style="margin:8px 0 0 18px;"></ol>
+  </div>
+</div>
+
     th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; }
     th { text-align: left; background: #f6f6f6; }
     .muted { color: #666; font-size: 12px; margin-top: 6px; }
@@ -139,6 +159,57 @@
   });
 
   render();
+  async function loadLoto6Stats(){
+  const status = document.getElementById("statsStatus");
+
+  try{
+    // GitHub Pagesのキャッシュ対策として ?v= を付ける（更新時に値を変える）
+    const res = await fetch("./loto6_stats.json?v=1", { cache: "no-store" });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const stats = await res.json();
+
+    // summary
+    const sum = stats.summary || {};
+    document.getElementById("s_draws").textContent = sum.draws ?? "—";
+    document.getElementById("s_range").textContent =
+      (sum.date_min && sum.date_max) ? `${sum.date_min} .. ${sum.date_max}` : "—";
+
+    // 連番(1組以上)率
+    const p = sum.consecutive_any_ratio;
+    document.getElementById("s_consecutive_any").textContent =
+      (typeof p === "number") ? `${(p*100).toFixed(2)}%` : "—";
+
+    // 連番ペア数分布
+    // あなたのJSONは "consecutive_pairs_distribution": {"0":936,"1":846,...} の形になっている
+    const dist = sum.consecutive_pairs_distribution || {};
+    const keys = Object.keys(dist).sort((a,b)=>Number(a)-Number(b));
+    const distText = keys.length
+      ? keys.map(k => `${k}組:${dist[k]}回`).join(" / ")
+      : "—";
+    document.getElementById("s_consecutive_dist").textContent = distText;
+
+    // Top10
+    // top10_main は [[num,count], ...]
+    const top10 = stats.top10_main || [];
+    const ol = document.getElementById("s_top10");
+    ol.innerHTML = "";
+    for(const [num, cnt] of top10){
+      const li = document.createElement("li");
+      li.textContent = `${num}（${cnt}回）`;
+      ol.appendChild(li);
+    }
+
+    status.textContent = "統計データの読み込み完了";
+  }catch(e){
+    status.textContent = `統計データの読み込みに失敗: ${e.message}`;
+  }
+}
+
+// ページ起動時に読み込む
+loadLoto6Stats();
+
 </script>
 </body>
 </html>
+
