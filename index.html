@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>1〜43 抽選（重複なし6個）</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 20px; }
+    .box { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .result { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 28px; font-weight: 700; padding: 12px 0; }
+    button { padding: 10px 14px; margin-right: 10px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; }
+    th { text-align: left; background: #f6f6f6; }
+    .muted { color: #666; font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>1〜43から重複なしで6個を抽選（履歴保存あり）</h1>
+
+    <div class="result" id="result">—</div>
+
+    <div>
+      <button id="draw">抽選する</button>
+      <button id="copy">コピー</button>
+      <button id="export">履歴をCSV出力</button>
+      <button id="clear">履歴を消去</button>
+    </div>
+
+    <div class="muted">
+      履歴はこのiPhone内に保存されます（localStorage）。端末を変えると引き継がれません。
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>日時</th>
+          <th>結果（昇順）</th>
+        </tr>
+      </thead>
+      <tbody id="history"></tbody>
+    </table>
+  </div>
+
+<script>
+  const KEY = "lottery_history_v1";
+
+  function pad2(n){ return String(n).padStart(2, "0"); }
+
+  function pickUniqueNumbers(){
+    const nums = new Set();
+    while(nums.size < 6){
+      nums.add(Math.floor(Math.random() * 43) + 1);
+    }
+    return Array.from(nums).sort((a,b)=>a-b);
+  }
+
+  function nowTimestamp(){
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = pad2(d.getMonth()+1);
+    const dd = pad2(d.getDate());
+    const hh = pad2(d.getHours());
+    const mi = pad2(d.getMinutes());
+    const ss = pad2(d.getSeconds());
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+  }
+
+  function loadHistory(){
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch { return []; }
+  }
+
+  function saveHistory(items){
+    localStorage.setItem(KEY, JSON.stringify(items));
+  }
+
+  function render(){
+    const items = loadHistory();
+    const tbody = document.getElementById("history");
+    tbody.innerHTML = "";
+    for(const it of items.slice().reverse()){
+      const tr = document.createElement("tr");
+      const td1 = document.createElement("td");
+      const td2 = document.createElement("td");
+      td1.textContent = it.ts;
+      td2.textContent = it.nums.map(pad2).join(" ");
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      tbody.appendChild(tr);
+    }
+  }
+
+  document.getElementById("draw").addEventListener("click", () => {
+    const nums = pickUniqueNumbers();
+    document.getElementById("result").textContent = nums.map(pad2).join("  ");
+
+    const items = loadHistory();
+    items.push({ ts: nowTimestamp(), nums });
+    saveHistory(items);
+    render();
+  });
+
+  document.getElementById("copy").addEventListener("click", async () => {
+    const text = document.getElementById("result").textContent;
+    if(text === "—") return alert("まだ抽選していません。");
+    try{
+      await navigator.clipboard.writeText(text.replace(/\s+/g, ", "));
+      alert("コピーしました。");
+    }catch{
+      alert("コピーに失敗しました（ブラウザ制限の可能性）。");
+    }
+  });
+
+  document.getElementById("export").addEventListener("click", () => {
+    const items = loadHistory();
+    if(items.length === 0) return alert("履歴がありません。");
+    let csv = "timestamp,n1,n2,n3,n4,n5,n6\n";
+    for(const it of items){
+      const row = [it.ts, ...it.nums].join(",");
+      csv += row + "\n";
+    }
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "history.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("clear").addEventListener("click", () => {
+    if(!confirm("履歴を消去します。よろしいですか？")) return;
+    localStorage.removeItem(KEY);
+    document.getElementById("result").textContent = "—";
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
