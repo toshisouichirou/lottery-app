@@ -43,10 +43,14 @@
     <div class="result" id="result">—</div>
 
     <div>
+      <label style="display:inline-block;margin-right:10px;">
+        <input type="checkbox" id="weightedMode"> 頻度重み付け抽選（偏り）
+      </label>
       <button id="draw">抽選する</button>
       <button id="copy">コピー</button>
       <button id="export">履歴をCSV出力</button>
       <button id="clear">履歴を消去</button>
+      
     </div>
 
     <div class="muted">
@@ -151,13 +155,52 @@
     URL.revokeObjectURL(url);
   });
 
-  document.getElementById("clear").addEventListener("click", () => {
-    if(!confirm("履歴を消去します。よろしいですか？")) return;
-    localStorage.removeItem(KEY);
-    document.getElementById("result").textContent = "—";
-    render();
-  });
+document.getElementById("draw").addEventListener("click", () => {
+  let nums;
 
+  const weighted = document.getElementById("weightedMode")?.checked;
+
+  try{
+    if(weighted){
+      nums = weightedPickNumbersFromStats();  // 重み付け抽選
+    }else{
+      nums = pickUniqueNumbers();              // 通常抽選（公平）
+    }
+  }catch(e){
+    alert("抽選に失敗しました: " + e.message);
+    return;
+  }
+
+  document.getElementById("result").textContent = nums.map(pad2).join("  ");
+
+  const items = loadHistory();
+  items.push({ ts: nowTimestamp(), nums });
+  saveHistory(items);
+  render();
+});
+
+
+  let loto6Stats = null;   // ←（2のA）
+
+  async function loadLoto6Stats(){
+    ...
+    const stats = await res.json();
+    loto6Stats = stats;    // ←（2のB）
+    ...
+  }
+
+  // ここに追加（2のC）★★★★★★★★★★★★★★★★★★★★
+  function weightedPickNumbersFromStats(){
+    ...
+  }
+  function weightedChoiceIndex(weights){
+    ...
+  }
+  // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+  document.getElementById("draw").addEventListener("click", () => {
+    ...
+  });
   render();
   async function loadLoto6Stats(){
   const status = document.getElementById("statsStatus");
@@ -168,7 +211,7 @@
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const stats = await res.json();
-
+    loto6Stats = stats;
     // summary
     const sum = stats.summary || {};
     document.getElementById("s_draws").textContent = sum.draws ?? "—";
@@ -208,8 +251,10 @@
 
 // ページ起動時に読み込む
 loadLoto6Stats();
+let loto6Stats = null;   // fetchで読んだ統計を保持
 
 </script>
 </body>
 </html>
+
 
